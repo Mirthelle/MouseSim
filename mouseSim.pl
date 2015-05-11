@@ -12,6 +12,53 @@ use GO::OntologyProvider::OboParser;
 use GO::Utils::File    qw (GenesFromFile);
 use GO::Utils::General qw (CategorizeGenes);
 
+###################################################################################
+sub Usage{
+###################################################################################
+
+    my $message = shift;
+
+    if (defined $message){
+
+		print $message, "\n";
+    }
+
+    print <<USAGE;
+
+##############################################
+##                                          ##
+##              M o u s e S i m             ##
+##                                          ##
+##############################################
+
+
+This program takes a PFAM_ID as input and will fetch a FASTA file
+with human sequences part of the selected family. Then it will get
+GO terms associated with the list of genes and find similar genes 
+annotated to the same GO nodes in mouse genome. 
+
+In addition to PFAM_ID you also need to provide names for 3 extra 
+files: a human annotation file (with GO terms), a mouse annotation 
+file (with GO terms) and a .obo file wich will contain the ontology.
+
+This will generate 3 output files: a FASTA file with the sequences 
+related to PFAM_ID, a text file with selected human genes (one per 
+line) and the final file with the results.
+
+Usage:
+
+\t ./mouseSim.pl <PFAM_ID> <human_annotation_file> <mouse_annotation_file> <obofile> 
+
+e.g.
+
+\t ./mouseSim.pl PF00870 ../t/gene_association.sgd ../gene_association.mgi ../t/gene_ontology_edit.obo
+
+USAGE
+
+    exit;
+
+}
+
 
 ######################################################################
 sub getFASTA {                                                      ##
@@ -25,7 +72,6 @@ sub getFASTA {                                                      ##
     my $data = "/alignment/seed/format?format=fasta&alnType=seed&order=a&case=l&gaps=none&download=0";
     my $all = $loc . $acc . $data;
     my $entry = get($all);
-    print "-- Fetching FASTA for ", $acc, "\n";
     
     # Writing file
     my $filename = $acc.".fasta";
@@ -65,12 +111,13 @@ sub humanGenesNames {                                               ##
     }
     print "-- Human genes selected were: ", "@gene_names", "\n";
 
+
     # Writing text file with one gene name per line.
     my $filename = "names.txt";
     open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
     print $fh join("\n", @gene_names);
     close $fh;
-    return $filename; 
+    return $filename, [@gene_names];
 }
 
 ######################################################################
@@ -222,54 +269,46 @@ sub findSimilarGenes {
     return %similar_genes;
 }
 
-
 ##############################################
-### PRUEBAS -- MAIN PROGRAM                 ##
+### 	   M A I N 	  P R O G R A M         ##
 ##############################################
+{
+	&Usage if (@ARGV < 4);
 
-#my $acc = "PF00870";
-#my $fasta = "PF00870.fasta";
-#getFASTA($acc);
+	print "-- Starting analysis\n";
 
-#my $gene_names = humanGenesNames($fasta);
-#print "@gene_names";
+	my $PFAM_ID = shift;
+	my $anno_human_file = shift;
+	my $anno_mouse_file = shift;
+	my $obo_file = shift;
 
-my $gene_names = "names.txt";
-my $obo_file = "go-basic.obo";
-my $anno_human_file = "gene_association.goa_human";
-my $anno_mouse_file = "gene_association_mouse.mgi";
-#my @hola = GOterms($gene_names, $anno_file, $obo_file);
-#print scalar @hola, "\n";
-#print "@hola";
-#print scalar @{$hola[0]}, " ", scalar @{$hola[1]}, " ", scalar @{$hola[2]};
+	print "-- Fetching FASTA for ", $PFAM_ID, "\n";
+	my $fasta = getFASTA($PFAM_ID);
+	my @gene_names = humanGenesNames($fasta);
+	my %humanGOterms = GOterms($anno_mouse_file, $obo_file, $gene_names[0]);
+	my %mouseGOgenes = findSimilarGenes($anno_mouse_file, %humanGOterms);
 
-my %GOterms = GOterms($anno_mouse_file, $obo_file, $gene_names);
-#print keys %GOterms, "\n";
-#print %GOterms;
-print "\n\n\nGO TERMS IN HUMAN ####################";
-foreach my $i (keys %GOterms){
-    print "ASPECT $i, ANNOTATED GENES: \n", join("\t", @{$GOterms{$i}});
+
+	my $filename = "mouseSim_results.txt";
+	open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+		print $fh "##############################################\n";
+		print $fh "##                                          ##\n";
+		print $fh "##              M o u s e S i m             ##\n";
+		print $fh "##                                          ##\n";
+		print $fh "##############################################\n";
+		print $fh "\n\n";
+		
+		print $fh "## GO IDs FOUND FOR SELECTED HUMAN GENES: @{$gene_names[1]} ##\n";
+		foreach my $i (sort keys %humanGOterms){
+	    	print $fh "# ASPECT $i, ANNOTATED GENES: #\n", join("\t", @{$humanGOterms{$i}}), "\n";
+		}
+
+		print $fh "\n Similar Genes in Mouse: \n";
+		foreach my $i (keys %mouseGOgenes){
+	    	print $fh "# ASPECT $i GO TERMS AND ANNOTATED GENES: #\n";
+	    	foreach my $j (sort keys %{$mouseGOgenes{$i}}){
+	        	print $fh "\n$j = ", "\n", join("\t", @{$mouseGOgenes{$i}{$j}}), "\n";
+	    	}
+		}
+	close $fh;
 }
-
-
-my %terms = findSimilarGenes($anno_mouse_file, %GOterms);
-
-print "\n\n\n SIMILAR GENES IN MOUSE ##################";
-foreach my $i (keys %terms){
-    print "############## ASPECT $i ################";
-    foreach my $j (keys %{$terms{$i}}){
-        print "$j =", join("\t", @{$terms{$i}{$j}}), "\n";
-    }
-    
-}
-
-
-#foreach my $i (keys %terms){
-#    foreach my $j (keys %{$terms{$i}}){
-#        print "\n", $j, " = ", join(" ", @{$terms{$i}{$j}});
-#    }
-#}
-
-#foreach my $key (keys %{$terms{'C'}}){
-#    print "\n", $key, "==", ${$terms{'C'}};
-#}
