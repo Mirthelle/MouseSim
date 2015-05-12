@@ -44,9 +44,7 @@ ontology. If you only provide a PFAM_ID, default annotation and
 ontology files will be used (you can find them in the subdirectory
 "files").
 
-This will generate 3 output files: a FASTA file with the sequences 
-related to PFAM_ID, a text file with selected human genes (one per 
-line) and the final file with the results.
+This will generate an output files with the results named "mouseSim_results.txt".
 
 Usage:
 
@@ -75,14 +73,7 @@ sub getFASTA {                                                      ##
     my $data = "/alignment/seed/format?format=fasta&alnType=seed&order=a&case=l&gaps=none&download=0";
     my $all = $loc . $acc . $data;
     my $entry = get($all);
-    
-    # Writing file
-    my $filename = $acc.".fasta";
-    open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
-    print $fh $entry;
-    close $fh;
-    return $filename;
-    print "-- Writing FASTA file for ", $acc, "\n";
+    my @fasta = split("\n", $entry);    
 }
 
 ######################################################################
@@ -91,14 +82,13 @@ sub humanGenesNames {                                               ##
 ## Using a fasta file as input writes a text file with human        ##
 ## gene names.                                                      ## 
 ######################################################################
-    my($fasta_file) = @_;
+    my(@fasta) = @_;
     
-    print "-- Selecting human gene names from file ", $fasta_file, "\n";
-    open(FASTA, $fasta_file);
-    
+    print "-- Selecting human gene names from FASTA\n";
+   
     # Selecting headers correspondig to human genes and storing them in @headers.
     my @headers = ();
-    foreach my $line (<FASTA>) {
+    foreach my $line (@fasta) {
         if (($line =~  m/^>/)  and ($line =~ m/_HUMAN/)) {
             my $header = $line;
             push @headers, $header;
@@ -164,6 +154,7 @@ sub GOterms {                                                       ##
     
     ## Gene categorization (and error control)
         my @genes = GenesFromFile($genes_list);
+        unlink $genes_list;
         my (@list, @notFound, @ambiguous);
     
         CategorizeGenes(annotation  => $annotation,
@@ -300,8 +291,8 @@ sub findSimilarGenes {
 		print "-- Starting analysis\n";
 
 		print "-- Fetching FASTA for ", $PFAM_ID, "\n";
-		my $fasta = getFASTA($PFAM_ID);
-		my @gene_names = humanGenesNames($fasta);
+		my @fasta = getFASTA($PFAM_ID);
+		my @gene_names = humanGenesNames(@fasta);
 		print "-- Finding GO terms por human genes\n";
 		my %humanGOterms = GOterms($anno_mouse_file, $obo_file, $gene_names[0]);
 		print "-- Finding similar genes in mouse annotation file\n";
