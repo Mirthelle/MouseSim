@@ -37,9 +37,12 @@ with human sequences part of the selected family. Then it will get
 GO terms associated with the list of genes and find similar genes 
 annotated to the same GO nodes in mouse genome. 
 
-In addition to PFAM_ID you also need to provide names for 3 extra 
+In addition to PFAM_ID you also can provide names for 3 extra 
 files: a human annotation file (with GO terms), a mouse annotation 
-file (with GO terms) and a .obo file wich will contain the ontology.
+file (with GO terms) and a .obo file wich will contain the 
+ontology. If you only provide a PFAM_ID, default annotation and 
+ontology files will be used (you can find them in the subdirectory
+"files").
 
 This will generate 3 output files: a FASTA file with the sequences 
 related to PFAM_ID, a text file with selected human genes (one per 
@@ -273,42 +276,58 @@ sub findSimilarGenes {
 ### 	   M A I N 	  P R O G R A M         ##
 ##############################################
 {
-	&Usage if (@ARGV < 4);
+	&Usage if (@ARGV < 1);
 
-	print "-- Starting analysis\n";
+	my ($PFAM_ID, $anno_human_file, $anno_mouse_file, $obo_file);
 
-	my $PFAM_ID = shift;
-	my $anno_human_file = shift;
-	my $anno_mouse_file = shift;
-	my $obo_file = shift;
+	if (@ARGV == 1) {
+		$PFAM_ID = $ARGV[0];
+		$anno_human_file = "files/gene_association.goa_human";
+		$anno_mouse_file = "files/gene_association_mouse.mgi";
+		$obo_file = "files/go-basic.obo";
 
-	print "-- Fetching FASTA for ", $PFAM_ID, "\n";
-	my $fasta = getFASTA($PFAM_ID);
-	my @gene_names = humanGenesNames($fasta);
-	my %humanGOterms = GOterms($anno_mouse_file, $obo_file, $gene_names[0]);
-	my %mouseGOgenes = findSimilarGenes($anno_mouse_file, %humanGOterms);
+		print "-- No annotation files nor ontology file specified, using default. \n"; 
+	}
+
+	if (@ARGV == 4) {
+		$PFAM_ID = shift;
+		$anno_human_file = shift;
+		$anno_mouse_file = shift;
+		$obo_file = shift;
+	}
 
 
-	my $filename = "mouseSim_results.txt";
-	open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
-		print $fh "##############################################\n";
-		print $fh "##                                          ##\n";
-		print $fh "##              M o u s e S i m             ##\n";
-		print $fh "##                                          ##\n";
-		print $fh "##############################################\n";
-		print $fh "\n\n";
-		
-		print $fh "## GO IDs FOUND FOR SELECTED HUMAN GENES: @{$gene_names[1]} ##\n";
-		foreach my $i (sort keys %humanGOterms){
-	    	print $fh "# ASPECT $i, ANNOTATED GENES: #\n", join("\t", @{$humanGOterms{$i}}), "\n";
-		}
+		print "-- Starting analysis\n";
 
-		print $fh "\n Similar Genes in Mouse: \n";
-		foreach my $i (keys %mouseGOgenes){
-	    	print $fh "# ASPECT $i GO TERMS AND ANNOTATED GENES: #\n";
-	    	foreach my $j (sort keys %{$mouseGOgenes{$i}}){
-	        	print $fh "\n$j = ", "\n", join("\t", @{$mouseGOgenes{$i}{$j}}), "\n";
-	    	}
-		}
-	close $fh;
+		print "-- Fetching FASTA for ", $PFAM_ID, "\n";
+		my $fasta = getFASTA($PFAM_ID);
+		my @gene_names = humanGenesNames($fasta);
+		print "-- Finding GO terms por human genes\n";
+		my %humanGOterms = GOterms($anno_mouse_file, $obo_file, $gene_names[0]);
+		print "-- Finding similar genes in mouse annotation file\n";
+		my %mouseGOgenes = findSimilarGenes($anno_mouse_file, %humanGOterms);
+
+		my $filename = "mouseSim_results.txt";
+		print "-- Writing results in file $filename \n";
+		open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+			print $fh "##############################################\n";
+			print $fh "##                                          ##\n";
+			print $fh "##              M o u s e S i m             ##\n";
+			print $fh "##                                          ##\n";
+			print $fh "##############################################\n";
+			print $fh "\n\n";
+			
+			print $fh "## GO IDs FOUND FOR SELECTED HUMAN GENES: @{$gene_names[1]} ##\n";
+			foreach my $i (sort keys %humanGOterms){
+		    	print $fh "# ASPECT $i, ANNOTATED GENES: #\n", join("\t", @{$humanGOterms{$i}}), "\n";
+			}
+
+			print $fh "\n Similar Genes in Mouse: \n";
+			foreach my $i (keys %mouseGOgenes){
+		    	print $fh "# ASPECT $i GO TERMS AND ANNOTATED GENES: #\n";
+		    	foreach my $j (sort keys %{$mouseGOgenes{$i}}){
+		        	print $fh "\n$j = ", "\n", join("\t", @{$mouseGOgenes{$i}{$j}}), "\n";
+		    	}
+			}
+		close $fh;
 }
