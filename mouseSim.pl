@@ -263,6 +263,32 @@ sub findSimilarGenes {
     return %similar_genes;
 }
 
+######################################################################
+sub moreSimilarGenes {                                              
+######################################################################
+## Using the output of findSimilarGenes, counts how many times each ##
+## gene appears to obtain which ones are more similar to human.     ##
+######################################################################
+    my(%similar_genes) = @_;
+    
+    ## Getting frequency for each gene
+    my %genes_freq;
+    foreach my $aspect (sort keys %similar_genes) {
+        foreach my $GO_ID (sort keys %{$similar_genes{$aspect}}) {
+            for (my $i = 0; $i < (scalar @{$similar_genes{$aspect}{$GO_ID}}); $i++) {
+                my $gene = $similar_genes{$aspect}{$GO_ID}[$i];
+                if (exists $genes_freq{$gene}) {
+                    $genes_freq{$gene}++; 
+                }
+                else{
+                    $genes_freq{$gene} = 1;
+                }
+            }
+        }
+    }
+    return %genes_freq;
+}
+
 ##############################################
 ### 	   M A I N 	  P R O G R A M         ##
 ##############################################
@@ -297,7 +323,21 @@ sub findSimilarGenes {
 		my %humanGOterms = GOterms($anno_mouse_file, $obo_file, $gene_names[0]);
 		print "-- Finding similar genes in mouse annotation file\n";
 		my %mouseGOgenes = findSimilarGenes($anno_mouse_file, %humanGOterms);
-
+        my %frequent = moreSimilarGenes(%mouseGOgenes);
+        
+        my $num = 15;
+        print "-- First $num more similar mouse genes will be selected\n";
+        # Printing more frequent genes
+        my $aux = 0;
+        foreach my $gene (sort { $frequent{$b} <=> $frequent{$a} } keys %frequent) {    # Descending order for hash values
+            $aux++;
+            print "\t$frequent{$gene} \t\t $gene\n";
+            if ($aux == $num) {
+                last;
+            }          
+        }
+        
+        ## WRITING OUTPUT FILE
 		my $filename = "mouseSim_results.txt";
 		print "-- Writing results in file $filename \n";
 		open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
@@ -308,12 +348,16 @@ sub findSimilarGenes {
 			print $fh "##############################################\n";
 			print $fh "\n\n";
 			
+            print $fh "##----------------------------------------------------------##\n";
 			print $fh "## GO IDs FOUND FOR SELECTED HUMAN GENES: @{$gene_names[1]} ##\n";
+            print $fh "##----------------------------------------------------------##\n";
 			foreach my $i (sort keys %humanGOterms){
 		    	print $fh "# ASPECT $i, ANNOTATED GENES: #\n", join("\t", @{$humanGOterms{$i}}), "\n";
 			}
-
-			print $fh "\n Similar Genes in Mouse: \n";
+            
+            print $fh "\n\n##-------------------------------##\n";
+			print $fh "## SIMILAR GENES FOUND IN MOUSE: ##\n";
+            print $fh "##-------------------------------##\n";
 			foreach my $i (keys %mouseGOgenes){
 		    	print $fh "# ASPECT $i GO TERMS AND ANNOTATED GENES: #\n";
 		    	foreach my $j (sort keys %{$mouseGOgenes{$i}}){
