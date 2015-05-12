@@ -287,8 +287,8 @@ sub findSimilarGenes {
 		$obo_file = shift;
 	}
 
-
-		print "-- Starting analysis\n";
+    if ($PFAM_ID =~ m/^PF/) {
+        print "-- Starting analysis\n";
 
 		print "-- Fetching FASTA for ", $PFAM_ID, "\n";
 		my @fasta = getFASTA($PFAM_ID);
@@ -321,4 +321,9 @@ sub findSimilarGenes {
 		    	}
 			}
 		close $fh;
+    }
+    else {
+        print "-- ERROR: PFAM_ID is not valid. Aborting program.\n"
+    }
+
 }
