@@ -311,7 +311,7 @@ sub moreSimilarGenes {
 		$anno_human_file = shift;
 		$anno_mouse_file = shift;
 		$obo_file = shift;
-	}
+	}  
 
     if ($PFAM_ID =~ m/^PF/) {
         print "-- Starting analysis\n";
@@ -325,45 +325,30 @@ sub moreSimilarGenes {
 		my %mouseGOgenes = findSimilarGenes($anno_mouse_file, %humanGOterms);
         my %frequent = moreSimilarGenes(%mouseGOgenes);
         
-        my $num = 15;
+        my $filename = "mouseSim_results.txt";
+        my $num = 30;
         print "-- First $num more similar mouse genes will be selected\n";
-        # Printing more frequent genes
-        my $aux = 0;
-        foreach my $gene (sort { $frequent{$b} <=> $frequent{$a} } keys %frequent) {    # Descending order for hash values
-            $aux++;
-            print "\t$frequent{$gene} \t\t $gene\n";
-            if ($aux == $num) {
-                last;
-            }          
-        }
+        print "-- Writing results in file $filename \n";
         
-        ## WRITING OUTPUT FILE
-		my $filename = "mouseSim_results.txt";
-		print "-- Writing results in file $filename \n";
-		open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+        open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
 			print $fh "##############################################\n";
 			print $fh "##                                          ##\n";
 			print $fh "##              M o u s e S i m             ##\n";
 			print $fh "##                                          ##\n";
 			print $fh "##############################################\n";
 			print $fh "\n\n";
-			
-            print $fh "##----------------------------------------------------------##\n";
-			print $fh "## GO IDs FOUND FOR SELECTED HUMAN GENES: @{$gene_names[1]} ##\n";
-            print $fh "##----------------------------------------------------------##\n";
-			foreach my $i (sort keys %humanGOterms){
-		    	print $fh "# ASPECT $i, ANNOTATED GENES: #\n", join("\t", @{$humanGOterms{$i}}), "\n";
-			}
+            print $fh "\t GO TERMS \t GENE NAME\n";
+            print $fh "\t----------\t----------\n";
             
-            print $fh "\n\n##-------------------------------##\n";
-			print $fh "## SIMILAR GENES FOUND IN MOUSE: ##\n";
-            print $fh "##-------------------------------##\n";
-			foreach my $i (keys %mouseGOgenes){
-		    	print $fh "# ASPECT $i GO TERMS AND ANNOTATED GENES: #\n";
-		    	foreach my $j (sort keys %{$mouseGOgenes{$i}}){
-		        	print $fh "\n$j = ", "\n", join("\t", @{$mouseGOgenes{$i}{$j}}), "\n";
-		    	}
-			}
+        # Printing more frequent genes
+        my $aux = 0;
+        foreach my $gene (sort { $frequent{$b} <=> $frequent{$a} } keys %frequent) {    # Descending order for hash values
+            $aux++;
+            print $fh "\t$frequent{$gene} \t\t $gene\n";
+            if ($aux == $num) {
+                last;
+            }          
+        }
 		close $fh;
     }
     else {
